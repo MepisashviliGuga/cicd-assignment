@@ -20,7 +20,7 @@
 > Example: `![Live App](docs/screenshots/live-app.png)`
 
 ```
-[Place your live app screenshot here]
+![Live App](screenshots/live-app.png)
 ```
 
 ### Successful GitHub Actions Run
@@ -29,7 +29,7 @@
 > Example: `![CI/CD Pipeline](docs/screenshots/pipeline-success.png)`
 
 ```
-[Place your GitHub Actions screenshot here]
+![CI/CD Pipeline](screenshots/pipeline-success.png)
 ```
 
 ---
