@@ -5,7 +5,7 @@ app.use(express.json());
 
 app.get('/', (req, res) => {
   res.json({
-    message: 'Hello from CI/CD Assignment App!',
+    message: 'Hello from CI/CD Assignment App! Pipeline is working!',
     version: process.env.APP_VERSION || '1.0.0',
     status: 'healthy',
     timestamp: new Date().toISOString(),
