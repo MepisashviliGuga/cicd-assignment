@@ -1,0 +1,93 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # ─────────────────────────────────────────────
+  # STAGE 1 — Continuous Integration (Quality Gate)
+  # ─────────────────────────────────────────────
+  test:
+    name: Run Tests (CI Quality Gate)
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Upload coverage report
+        if: matrix.node-version == '20.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # STAGE 2 — Continuous Deployment
+  # Only runs if ALL tests pass (needs: test)
+  # Only triggers on push to main branch
+  # ─────────────────────────────────────────────
+  deploy:
+    name: Deploy to Render (CD)
+    runs-on: ubuntu-latest
+    needs: test                     # 🚦 BLOCKED if tests fail
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    environment:
+      name: production
+      url: ${{ vars.RENDER_APP_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Trigger Render Deploy Hook
+        run: |
+          echo "Triggering deployment to Render..."
+          curl -s -o /dev/null -w "%{http_code}" \
+            --fail \
+            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          echo "Deploy hook triggered successfully."
+
+      - name: Wait for deployment to stabilise
+        run: sleep 30
+
+      - name: Health-check deployed application
+        run: |
+          echo "Running health check on ${{ vars.RENDER_APP_URL }}/health"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.RENDER_APP_URL }}/health")
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Health check failed! HTTP status: $STATUS"
+            exit 1
+          fi
+          echo "✅ Health check passed! HTTP status: $STATUS"
+
+      - name: Notify deployment success
+        run: |
+          echo "🚀 Deployment successful!"
+          echo "Live URL: ${{ vars.RENDER_APP_URL }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: ${{ github.actor }}"
